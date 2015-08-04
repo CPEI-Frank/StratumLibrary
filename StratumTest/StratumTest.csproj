@@ -50,7 +50,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\StratumLibrary\Stratum.csproj">
-      <Project>{27f0c6c3-dcd6-4588-afbb-dce22306f5f8}</Project>
+      <Project>{27F0C6C3-DCD6-4588-AFBB-DCE22306F5F8}</Project>
       <Name>Stratum</Name>
     </ProjectReference>
   </ItemGroup>
