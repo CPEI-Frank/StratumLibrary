@@ -143,7 +143,7 @@ namespace Stratum
             // Reset the state
             gotResponse.Reset();
 
-            if (object.ReferenceEquals(null, responseObj))
+            if (responseObj == null)
             {
                 try
                 {
