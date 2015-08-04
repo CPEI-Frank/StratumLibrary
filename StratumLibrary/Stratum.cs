@@ -1,16 +1,19 @@
 ﻿using System;
 using System.Net;
+using System.Threading;
+using System.Net.Sockets;
 using Newtonsoft.Json.Linq;
 
 using System.Text;
-using System.Threading;
-using System.Net.Sockets;
+using System.Collections.Generic;
 
 namespace Stratum
 {
     public class Stratum
     {
         private Socket client;
+        private Dictionary<string, string> responses = new Dictionary<string, string>();
+        ManualResetEvent gotResponse = new ManualResetEvent(false);
 
         /// <summary>
         /// Constructor of Stratum interface class
@@ -32,10 +35,10 @@ namespace Stratum
             ConnectCallback = (IAsyncResult ar) =>
             {
                 // Retrieve socket from the state object
-                Socket cli = (Socket)ar.AsyncState;
+                Socket arClient = (Socket)ar.AsyncState;
 
                 // Complete the connection
-                cli.EndConnect(ar);
+                arClient.EndConnect(ar);
 
                 // Signal that connection has been established
                 connectDone.Set();
@@ -46,6 +49,9 @@ namespace Stratum
 
             // Wait for signal
             connectDone.WaitOne();
+
+            // Start receive handler
+            Receiver(client);
         }
 
         ~Stratum()
@@ -64,10 +70,10 @@ namespace Stratum
             SendCallback = (IAsyncResult ar) =>
             {
                 // Retrieve the socket from the state object
-                Socket cli = (Socket)ar.AsyncState;
+                Socket arClient = (Socket)ar.AsyncState;
 
                 // Complete sending the data to the remote device
-                int bytesSent = cli.EndSend(ar);
+                int bytesSent = arClient.EndSend(ar);
 
                 // Signal that all bytes have been sent
                 sendDone.Set();
@@ -119,75 +125,98 @@ namespace Stratum
 
         private StratumResponse<T> Invoke<T>(StratumRequest stratumReq)
         {
-            StratumResponse<T> rjson = null;
-
             // Serialize stratumReq into JSON string
             var reqJSON = Newtonsoft.Json.JsonConvert.SerializeObject(stratumReq) + '\n';
+            var reqId = (string) stratumReq.Id;
 
             // Send JSON data to the remote device.
             Send(client, reqJSON);
 
+            // Wait for response
+            gotResponse.WaitOne();
+
+            // Deserialize the response
+            string strResponse = responses[reqId];
+            StratumResponse<T> responseObj = Newtonsoft.Json.JsonConvert.DeserializeObject<StratumResponse<T>>(strResponse);
+            responses.Remove(reqId);
+
+            // Reset the state
+            gotResponse.Reset();
+
+            if (object.ReferenceEquals(null, responseObj))
+            {
+                try
+                {
+                    JObject jo = Newtonsoft.Json.JsonConvert.DeserializeObject(strResponse) as JObject;
+                    throw new Exception(jo["Error"].ToString());
+                }
+                catch (Newtonsoft.Json.JsonSerializationException)
+                {
+                    throw new Exception("Inconsistent or empty response");
+                }
+            }
+
+            return responseObj;
+        }
+
+        private void Receiver(Socket client)
+        {
             // Create the reading state object.
             StratumReadState state = new StratumReadState(client);
-
-            // Receive event
-            ManualResetEvent receiveDone = new ManualResetEvent(false);
 
             Action<IAsyncResult> ReceiveCallback = null;
             ReceiveCallback = (IAsyncResult ar) =>
             {
                 // Retrieve the state object and the client socket 
                 // from the asynchronous state object.
-                StratumReadState st = (StratumReadState)ar.AsyncState;
-                Socket ci = st.workSocket;
+                StratumReadState arStatus = (StratumReadState)ar.AsyncState;
+                Socket arClient = arStatus.workSocket;
 
                 // Read data from the remote device.
-                int bytesRead = ci.EndReceive(ar);
+                int bytesRead = arClient.EndReceive(ar);
 
                 if (bytesRead <= 0)
                     return;
 
-                lock (st.sb)
+                lock (arStatus.sb)
                 {
                     // There might be more data, so store the data received so far.
-                    st.sb.Append(Encoding.ASCII.GetString(st.buffer, 0, bytesRead));
+                    arStatus.sb.Append(Encoding.ASCII.GetString(arStatus.buffer, 0, bytesRead));
 
-                    if (st.buffer[bytesRead - 1] != '\n')
+                    if (arStatus.buffer[bytesRead - 1] == '\n')
                     {
-                        //  No EOL at the end of buffer, going to get the rest of data
-                        ci.BeginReceive(st.buffer, 0, StratumReadState.BufferSize, SocketFlags.None, new AsyncCallback(ReceiveCallback), st);
-                    }
-                    else
-                    {
-                        string strResponse = st.sb.ToString();
+                        string strMessage = arStatus.sb.ToString();
+                        arStatus.sb.Clear();
 
-                        // Deserialize the response
-                        rjson = Newtonsoft.Json.JsonConvert.DeserializeObject<StratumResponse<T>>(strResponse);
-
-                        if (rjson == null)
+                        try
                         {
-                            try
+                            JObject jo = Newtonsoft.Json.JsonConvert.DeserializeObject(strMessage) as JObject;
+                            string requestId = (string)jo["id"];
+
+                            if (!String.IsNullOrEmpty(requestId))
                             {
-                                JObject jo = Newtonsoft.Json.JsonConvert.DeserializeObject(strResponse) as JObject;
-                                throw new Exception(jo["Error"].ToString());
+                                responses.Add(requestId, strMessage);
+
+                                gotResponse.Set();
                             }
-                            catch (Newtonsoft.Json.JsonSerializationException)
+                            else
                             {
-                                throw new Exception("Inconsistent or empty response");
+                                // TODO: notifications handling
+                                Console.WriteLine("Notification: {0}", strMessage);
                             }
                         }
-
-                        // Signal that all bytes have been received.
-                        receiveDone.Set();
+                        catch (Newtonsoft.Json.JsonSerializationException e)
+                        {
+                            // TODO: handle parse error
+                        }
                     }
                 }
+
+                arClient.BeginReceive(arStatus.buffer, 0, StratumReadState.BufferSize, SocketFlags.None, new AsyncCallback(ReceiveCallback), arStatus);
             };
 
-            // Begin receiving the data from the remote device.
             client.BeginReceive(state.buffer, 0, StratumReadState.BufferSize, SocketFlags.None, new AsyncCallback(ReceiveCallback), state);
-            receiveDone.WaitOne();
-
-            return rjson;
         }
     }
+
 }
