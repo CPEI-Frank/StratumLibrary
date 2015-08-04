@@ -9,9 +9,13 @@ using System.Collections.Generic;
 
 namespace Stratum
 {
+    delegate void NotificationCallback(out object[] notificationData);
+
     public class Stratum
     {
         private Socket client;
+
+        object responsesLock = new object();
         private Dictionary<string, string> responses = new Dictionary<string, string>();
         ManualResetEvent gotResponse = new ManualResetEvent(false);
 
@@ -94,6 +98,22 @@ namespace Stratum
         /// </summary>
         /// <typeparam name="T">Return type</typeparam>
         /// <param name="method">Method name</param>
+        /// <returns>StratumResponse object</returns>
+        public StratumResponse<T> Invoke<T>(string method)
+        {
+            var req = new StratumRequest()
+            {
+                Method = method,
+                Params = new object[] { }
+            };
+            return Invoke<T>(req);
+        }
+
+        /// <summary>
+        /// Invoke remote method
+        /// </summary>
+        /// <typeparam name="T">Return type</typeparam>
+        /// <param name="method">Method name</param>
         /// <param name="arg">Argument</param>
         /// <returns>StratumResponse object</returns>
         public StratumResponse<T> Invoke<T>(string method, object arg)
@@ -129,16 +149,22 @@ namespace Stratum
             var reqJSON = Newtonsoft.Json.JsonConvert.SerializeObject(stratumReq) + '\n';
             var reqId = (string) stratumReq.Id;
 
+            string strResponse = "";
+            StratumResponse<T> responseObj = null;
+
             // Send JSON data to the remote device.
             Send(client, reqJSON);
 
             // Wait for response
             gotResponse.WaitOne();
 
-            // Deserialize the response
-            string strResponse = responses[reqId];
-            StratumResponse<T> responseObj = Newtonsoft.Json.JsonConvert.DeserializeObject<StratumResponse<T>>(strResponse);
-            responses.Remove(reqId);
+            lock (responsesLock)
+            {
+                // Deserialize the response
+                strResponse = responses[reqId];
+                responses.Remove(reqId);
+            }
+            responseObj = Newtonsoft.Json.JsonConvert.DeserializeObject<StratumResponse<T>>(strResponse);
 
             // Reset the state
             gotResponse.Reset();
@@ -195,7 +221,10 @@ namespace Stratum
 
                             if (!String.IsNullOrEmpty(requestId))
                             {
-                                responses.Add(requestId, strMessage);
+                                lock (responsesLock)
+                                {
+                                    responses.Add(requestId, strMessage);
+                                }
 
                                 gotResponse.Set();
                             }

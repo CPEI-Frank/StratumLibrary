@@ -21,7 +21,7 @@ namespace Stratum
         /// <summary>
         /// Receive buffer size
         /// </summary>
-        public const int BufferSize = 8;
+        public const int BufferSize = 256;
         /// <summary>
         /// Receive buffer
         /// </summary>
