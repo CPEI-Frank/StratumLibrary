@@ -13,7 +13,9 @@ namespace StratumTest
 
             while (true)
             {
-                var res = s.Invoke<string>("blockchain.transaction.get", "101379cb55ac431c435db40b4325f858568b0de3d8bd652a23a19e5d62521a72");
+				var res = s.Invoke<Newtonsoft.Json.Linq.JObject>("blockchain.headers.subscribe", new object[] {});
+
+                // var res = s.Invoke<string>("blockchain.transaction.get", "101379cb55ac431c435db40b4325f858568b0de3d8bd652a23a19e5d62521a72");
 
                 //                var res = s.Invoke<Newtonsoft.Json.Linq.JObject>("blockchain.address.get_balance", "4PQtUNZ2aBYpZpVMPV2Qgz1PitCqgoT388");
                 //                var res = s.Invoke<Newtonsoft.Json.Linq.JArray>("blockchain.address.get_history", "4PQtUNZ2aBYpZpVMPV2Qgz1PitCqgoT388");
