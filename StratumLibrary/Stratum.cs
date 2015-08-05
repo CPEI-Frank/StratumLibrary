@@ -2,6 +2,7 @@
 using System.Net;
 using System.Threading;
 using System.Net.Sockets;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
 using System.Text;
@@ -9,8 +10,6 @@ using System.Collections.Generic;
 
 namespace Stratum
 {
-    delegate void NotificationCallback(out object[] notificationData);
-
     public class Stratum
     {
         private Socket client;
@@ -146,11 +145,7 @@ namespace Stratum
         private StratumResponse<T> Invoke<T>(StratumRequest stratumReq)
         {
             // Serialize stratumReq into JSON string
-            var reqJSON = Newtonsoft.Json.JsonConvert.SerializeObject(stratumReq) + '\n';
-            var reqId = (string) stratumReq.Id;
-
-            string strResponse = "";
-            StratumResponse<T> responseObj = null;
+            var reqJSON = JsonConvert.SerializeObject(stratumReq) + '\n';
 
             // Send JSON data to the remote device.
             Send(client, reqJSON);
@@ -158,13 +153,16 @@ namespace Stratum
             // Wait for response
             gotResponse.WaitOne();
 
+            var strResponse = string.Empty;
             lock (responsesLock)
             {
                 // Deserialize the response
-                strResponse = responses[reqId];
-                responses.Remove(reqId);
+                strResponse = responses[stratumReq.Id];
+                responses.Remove(stratumReq.Id);
             }
-            responseObj = Newtonsoft.Json.JsonConvert.DeserializeObject<StratumResponse<T>>(strResponse);
+
+            // Deserialize response into new instance of StratumResponse<T> 
+            StratumResponse<T> responseObj = JsonConvert.DeserializeObject<StratumResponse<T>>(strResponse);
 
             // Reset the state
             gotResponse.Reset();
@@ -173,10 +171,10 @@ namespace Stratum
             {
                 try
                 {
-                    JObject jo = Newtonsoft.Json.JsonConvert.DeserializeObject(strResponse) as JObject;
-                    throw new Exception(jo["Error"].ToString());
+                    JObject jResponseObj = JsonConvert.DeserializeObject(strResponse) as JObject;
+                    throw new Exception(jResponseObj["Error"].ToString());
                 }
-                catch (Newtonsoft.Json.JsonSerializationException)
+                catch (JsonSerializationException)
                 {
                     throw new Exception("Inconsistent or empty response");
                 }
@@ -211,30 +209,32 @@ namespace Stratum
 
                     if (arStatus.buffer[bytesRead - 1] == '\n')
                     {
-                        string strMessage = arStatus.sb.ToString();
+                        var strMessage = arStatus.sb.ToString();
                         arStatus.sb.Clear();
 
                         try
                         {
-                            JObject jo = Newtonsoft.Json.JsonConvert.DeserializeObject(strMessage) as JObject;
-                            string requestId = (string)jo["id"];
+                            JObject jResponse = JsonConvert.DeserializeObject(strMessage) as JObject;
+                            var reqId = (string)jResponse["id"];
 
-                            if (!String.IsNullOrEmpty(requestId))
+                            if (!String.IsNullOrEmpty(reqId))
                             {
                                 lock (responsesLock)
                                 {
-                                    responses.Add(requestId, strMessage);
+                                    responses.Add(reqId, strMessage);
                                 }
 
                                 gotResponse.Set();
                             }
                             else
                             {
-                                // TODO: notifications handling
-                                Console.WriteLine("Notification: {0}", strMessage);
+                                StratumNotification jNotification = JsonConvert.DeserializeObject<StratumNotification>(strMessage);
+
+                                var NotifyProcessThread = new Thread(() => NotificationHandler(jNotification.Method, jNotification.Params));
+                                NotifyProcessThread.Start();
                             }
                         }
-                        catch (Newtonsoft.Json.JsonSerializationException e)
+                        catch (JsonSerializationException e)
                         {
                             // TODO: handle parse error
                         }
@@ -245,6 +245,16 @@ namespace Stratum
             };
 
             client.BeginReceive(state.buffer, 0, StratumReadState.BufferSize, SocketFlags.None, new AsyncCallback(ReceiveCallback), state);
+        }
+
+        /// <summary>
+        /// Notifications stub which is run in a separate thread. If you wish to implement real notification processing then just override this method in the derived class.
+        /// </summary>
+        /// <param name="NotificationMethod">Method name</param>
+        /// <param name="NotificationData">Array of values</param>
+        private static void NotificationHandler(string NotificationMethod, JArray NotificationData)
+        {
+            Console.WriteLine("\nNotification: Method={0}, data={1}", NotificationMethod, NotificationData.ToString());
         }
     }
 

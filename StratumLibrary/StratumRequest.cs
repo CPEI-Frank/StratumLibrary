@@ -18,7 +18,7 @@ namespace Stratum
         /// Unique request id
         /// </summary>
         [JsonProperty("id")]
-        public object Id { get; private set; }
+        public string Id { get; private set; }
 
         /// <summary>
         /// Stratum method name

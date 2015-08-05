@@ -12,7 +12,7 @@ namespace Stratum
         /// Response id, should be null or identical to request id
         /// </summary>
         [JsonProperty(PropertyName = "id")]
-        public object Id { get; set; }
+        public string Id { get; set; }
 
         /// <summary>
         /// Result object
@@ -37,7 +37,7 @@ namespace Stratum
         /// Response id, should be null or identical to request id
         /// </summary>
         [JsonProperty(PropertyName = "id")]
-        public object Id { get; set; }
+        public string Id { get; set; }
 
         /// <summary>
         /// Result object

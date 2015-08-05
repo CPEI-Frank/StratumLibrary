@@ -1,6 +1,6 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 2012
+# Visual Studio Express 2012 for Windows Desktop
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Stratum", "StratumLibrary\Stratum.csproj", "{27F0C6C3-DCD6-4588-AFBB-DCE22306F5F8}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StratumTest", "StratumTest\StratumTest.csproj", "{FB61065F-93BA-497B-A2D5-3574D23B0B62}"
@@ -19,9 +19,6 @@ Global
 		{FB61065F-93BA-497B-A2D5-3574D23B0B62}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{FB61065F-93BA-497B-A2D5-3574D23B0B62}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{FB61065F-93BA-497B-A2D5-3574D23B0B62}.Release|Any CPU.Build.0 = Release|Any CPU
-	EndGlobalSection
-	GlobalSection(MonoDevelopProperties) = preSolution
-		StartupItem = StratumTest\StratumTest.csproj
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
