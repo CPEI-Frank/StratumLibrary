@@ -10,7 +10,7 @@ using System.Collections.Generic;
 
 namespace Stratum
 {
-    public class Stratum
+    public abstract class Stratum
     {
         private Socket client;
 
@@ -248,14 +248,11 @@ namespace Stratum
         }
 
         /// <summary>
-        /// Notifications stub which is run in a separate thread. If you wish to implement real notification processing then just override this method in the derived class.
+        /// Notifications stub which is run in a separate thread. You need to override this method in the derived class.
         /// </summary>
         /// <param name="NotificationMethod">Method name</param>
         /// <param name="NotificationData">Array of values</param>
-        private static void NotificationHandler(string NotificationMethod, JArray NotificationData)
-        {
-            Console.WriteLine("\nNotification: Method={0}, data={1}", NotificationMethod, NotificationData.ToString());
-        }
+		public abstract void NotificationHandler (string NotificationMethod, JArray NotificationData);
     }
 
 }

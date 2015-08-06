@@ -4,12 +4,23 @@
 namespace StratumTest
 {
     using Stratum;
+	using Newtonsoft.Json.Linq;
+
+	class StratumWrapper : Stratum
+	{
+		public StratumWrapper(string ipAddress, int port) : base(ipAddress, port) {	}
+
+		public override void NotificationHandler(string NotificationMethod, JArray NotificationData)
+		{
+			Console.WriteLine("\nNotification: Method={0}, data={1}", NotificationMethod, NotificationData.ToString());
+		}
+	}
 
     class StratumTest
     {
         static void Main(string[] args)
         {
-            Stratum s = new Stratum("192.168.1.100", 40001);
+			StratumWrapper s = new StratumWrapper("127.0.0.1", 40001);
 
             while (true)
             {
