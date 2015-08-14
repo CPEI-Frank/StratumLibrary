@@ -6,21 +6,18 @@ namespace StratumTest
     using Stratum;
 	using Newtonsoft.Json.Linq;
 
-	class StratumWrapper : Stratum
-	{
-		public StratumWrapper(string ipAddress, int port) : base(ipAddress, port) {	}
-
-		public override void NotificationHandler(string NotificationMethod, JArray NotificationData)
-		{
-			Console.WriteLine("\nNotification: Method={0}, data={1}", NotificationMethod, NotificationData.ToString());
-		}
-	}
-
-    class StratumTest
+    class StratumTest : Stratum
     {
+        public StratumTest(string ipAddress, int port) : base(ipAddress, port) { }
+
+        public override void NotificationHandler(string NotificationMethod, JArray NotificationData)
+        {
+            Console.WriteLine("\nNotification: Method={0}, data={1}", NotificationMethod, NotificationData.ToString());
+        }
+
         static void Main(string[] args)
         {
-			StratumWrapper s = new StratumWrapper("127.0.0.1", 40001);
+			StratumTest s = new StratumTest("192.168.1.100", 40001);
 
             while (true)
             {
